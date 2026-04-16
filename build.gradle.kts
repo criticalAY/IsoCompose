@@ -20,16 +20,16 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.ktlint.gradle) apply false
+    alias(libs.plugins.maven.publish) apply false
 }
 
-// Automatically configure git to use the project's committed hooks.
-tasks.register("installGitHooks") {
+// Configure git to use the project's committed hooks directory.
+// Run once after cloning: ./gradlew installGitHooks
+tasks.register<Exec>("installGitHooks") {
     group = "git hooks"
     description = "Configures git to use .githooks/ as the hooks directory."
+    commandLine("git", "config", "core.hooksPath", ".githooks")
     doLast {
-        exec {
-            commandLine("git", "config", "core.hooksPath", ".githooks")
-        }
         println("Git hooks path configured to .githooks/")
     }
 }

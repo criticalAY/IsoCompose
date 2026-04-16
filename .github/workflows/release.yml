@@ -1,0 +1,226 @@
+# Release workflow for the kubik library.
+#
+# Single workflow with two flows:
+#
+#   1. `draft` job  — runs on workflow_dispatch (manual trigger)
+#       Cuts the release branch, bumps the version, builds the AAR, and creates
+#       a DRAFT GitHub release with auto-generated changelog.
+#
+#   2. `publish` job — runs automatically when you click "Publish release" on
+#       that draft in the GitHub UI.
+#       Publishes the signed artifact to Maven Central.
+#
+# So the full user flow is:
+#   Actions → Release kubik → Run workflow (enter version) → review draft → Publish.
+
+name: Release kubik
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (semver, e.g. 1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+      release_notes:
+        description: 'Additional release notes (optional, prepended above auto-changelog)'
+        required: false
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Job 1: build AAR + draft a GitHub release (fires on manual dispatch)
+  # -------------------------------------------------------------------------
+  draft:
+    name: Build AAR and draft GitHub release
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate version format
+        run: |
+          if [[ ! "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '${{ inputs.version }}' is not valid semver (X.Y.Z)"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tag does not already exist
+        run: |
+          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Tag v${{ inputs.version }} already exists"
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Run ktlint
+        run: ./gradlew ktlintCheck
+
+      - name: Run unit tests
+        run: ./gradlew :kubik:testDebugUnitTest
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create release branch
+        run: git checkout -b release/v${{ inputs.version }}
+
+      - name: Bump library version
+        run: |
+          sed -i "s/^kubikVersion=.*/kubikVersion=${{ inputs.version }}/" gradle.properties
+          grep kubikVersion gradle.properties
+
+      - name: Commit version bump
+        run: |
+          git add gradle.properties
+          git commit -m "Release kubik v${{ inputs.version }}"
+
+      - name: Build release AAR
+        run: ./gradlew :kubik:assembleRelease
+
+      - name: Stage AAR artifact
+        id: artifact
+        run: |
+          mkdir -p release-artifacts
+          SRC="kubik/build/outputs/aar/kubik-release.aar"
+          DEST="release-artifacts/kubik-${{ inputs.version }}.aar"
+          cp "$SRC" "$DEST"
+          echo "path=$DEST" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log "$LAST_TAG"..HEAD^ --pretty=format:"- %s (%h)" --no-merges)
+            RANGE_MSG="Changes since **$LAST_TAG**:"
+          else
+            COMMITS=$(git log HEAD^ --pretty=format:"- %s (%h)" --no-merges)
+            RANGE_MSG="Initial release — full commit history:"
+          fi
+          {
+            echo "body<<CHANGELOG_EOF"
+            if [ -n "${{ inputs.release_notes }}" ]; then
+              echo "${{ inputs.release_notes }}"
+              echo ""
+            fi
+            echo "### Installation"
+            echo ""
+            echo "Add the dependency to your module \`build.gradle.kts\`:"
+            echo ""
+            echo '```kotlin'
+            echo "implementation(\"io.github.criticalay:kubik:${{ inputs.version }}\")"
+            echo '```'
+            echo ""
+            echo "Or download the AAR directly from the assets below."
+            echo ""
+            echo "### Changelog"
+            echo ""
+            echo "$RANGE_MSG"
+            echo ""
+            echo "$COMMITS"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Push release branch
+        run: git push origin release/v${{ inputs.version }}
+
+      - name: Create draft GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          target_commitish: release/v${{ inputs.version }}
+          name: Kubik v${{ inputs.version }}
+          draft: true
+          prerelease: ${{ inputs.prerelease }}
+          body: ${{ steps.changelog.outputs.body }}
+          files: ${{ steps.artifact.outputs.path }}
+
+      - name: Summary
+        run: |
+          {
+            echo "## Draft release created: v${{ inputs.version }}"
+            echo ""
+            echo "- Branch: \`release/v${{ inputs.version }}\`"
+            echo "- Artifact: \`kubik-${{ inputs.version }}.aar\`"
+            echo ""
+            echo "Next step: visit the [Releases page](../../releases) and click **Publish release**."
+            echo "That will automatically trigger the Maven Central publish."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # -------------------------------------------------------------------------
+  # Job 2: publish to Maven Central (fires when the draft is published)
+  # -------------------------------------------------------------------------
+  publish:
+    name: Publish to Maven Central
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.target_commitish }}
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Publish to Maven Central
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: ./gradlew :kubik:publishAndReleaseToMavenCentral --no-configuration-cache --stacktrace
+
+      - name: Summary
+        run: |
+          {
+            echo "## Published to Maven Central"
+            echo ""
+            echo "- Coordinates: \`io.github.criticalay:kubik:${{ github.event.release.tag_name }}\`"
+            echo ""
+            echo "Artifact will be searchable on [Maven Central](https://central.sonatype.com/) within a few minutes."
+          } >> "$GITHUB_STEP_SUMMARY"
