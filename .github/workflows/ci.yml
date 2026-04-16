@@ -1,0 +1,52 @@
+# Continuous integration for every push to main and every pull request.
+# Gates: ktlintCheck + unit tests + debug build of both modules.
+# Make this a required status check in branch protection so PRs can't merge
+# without it passing.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Run ktlint
+        run: ./gradlew ktlintCheck
+
+      - name: Run kubik unit tests
+        run: ./gradlew :kubik:testDebugUnitTest
+
+      - name: Assemble kubik library
+        run: ./gradlew :kubik:assembleDebug
+
+      - name: Assemble sample app
+        run: ./gradlew :app:assembleDebug
