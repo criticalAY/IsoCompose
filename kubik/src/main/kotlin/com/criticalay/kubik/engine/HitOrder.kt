@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-package com.criticalay.isocompose
-
-import org.junit.Test
-
-import org.junit.Assert.*
+package com.criticalay.kubik.engine
 
 /**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
+ * Search order for hit testing.
  */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
-    }
+enum class HitOrder {
+    /** Return the frontmost (closest to viewer) match. */
+    FRONT_TO_BACK,
+    /** Return the rearmost (furthest from viewer) match. */
+    BACK_TO_FRONT
 }

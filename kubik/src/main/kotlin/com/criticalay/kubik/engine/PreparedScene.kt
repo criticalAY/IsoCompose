@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-package com.criticalay.isocompose
-
-import org.junit.Test
-
-import org.junit.Assert.*
+package com.criticalay.kubik.engine
 
 /**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
+ * A prepared scene ready for rendering.
+ * Contains render commands sorted back-to-front for correct depth ordering.
  */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
-    }
-}
+class PreparedScene(
+    val commands: List<RenderCommand>,
+    val width: Int,
+    val height: Int
+)

@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
-package com.criticalay.isocompose
+package com.criticalay.kubik.engine
 
-import org.junit.Test
-
-import org.junit.Assert.*
+import com.criticalay.kubik.core.IsoColor
+import com.criticalay.kubik.core.Path
+import com.criticalay.kubik.core.Point2D
+import com.criticalay.kubik.core.Shape
 
 /**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
+ * A platform-agnostic rendering command for a single polygon.
+ * Contains 2D screen-space points and lit color, ready for rendering.
  */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
-    }
-}
+class RenderCommand(
+    val commandId: String,
+    val points: List<Point2D>,
+    val color: IsoColor,
+    val originalPath: Path,
+    val originalShape: Shape?
+)

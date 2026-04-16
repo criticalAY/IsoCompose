@@ -14,20 +14,23 @@
  * limitations under the License.
  */
 
-package com.criticalay.isocompose
+package com.criticalay.kubik.compose
 
-import org.junit.Test
+import androidx.compose.ui.graphics.Color
+import com.criticalay.kubik.core.IsoColor
 
-import org.junit.Assert.*
+/** Convert [IsoColor] (0-255) to Compose [Color] (0-1). */
+fun IsoColor.toComposeColor(): Color = Color(
+    red = (r / 255.0).toFloat(),
+    green = (g / 255.0).toFloat(),
+    blue = (b / 255.0).toFloat(),
+    alpha = (a / 255.0).toFloat()
+)
 
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
-    }
-}
+/** Convert Compose [Color] to [IsoColor]. */
+fun Color.toIsoColor(): IsoColor = IsoColor(
+    r = (red * 255.0),
+    g = (green * 255.0),
+    b = (blue * 255.0),
+    a = (alpha * 255.0)
+)
