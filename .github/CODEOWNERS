@@ -1,0 +1,20 @@
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-configuration/customizing-your-repository/about-code-owners
+#
+# Code owners listed here are automatically requested for review on any PR
+# that modifies the matching paths. Combined with branch protection rule
+# "Require review from Code Owners", this forces owner approval before merge.
+
+# Default owner for everything
+*                            @criticalAY
+
+# Release + CI workflows — extra sensitive, owner-only
+/.github/workflows/          @criticalAY
+/.github/dependabot.yml      @criticalAY
+/.github/CODEOWNERS          @criticalAY
+
+# Build + publishing config
+/build.gradle.kts            @criticalAY
+/settings.gradle.kts         @criticalAY
+/gradle/                     @criticalAY
+/gradle.properties           @criticalAY
+/kubik/build.gradle.kts      @criticalAY
