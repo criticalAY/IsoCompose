@@ -51,6 +51,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Verify actor is repository owner
+        run: |
+          if [ "${{ github.actor }}" != "${{ github.repository_owner }}" ]; then
+            echo "::error::Only @${{ github.repository_owner }} can trigger the release workflow."
+            echo "::error::You are @${{ github.actor }}."
+            exit 1
+          fi
+
       - name: Validate version format
         run: |
           if [[ ! "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -186,8 +194,24 @@ jobs:
     name: Publish to Maven Central
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-latest
+    # The `maven-central` environment scopes the signing and Central Portal
+    # secrets to this job only. Configure it at:
+    #   Settings → Environments → New environment → "maven-central"
+    # Move the 5 publishing secrets there and optionally add yourself as
+    # required reviewer for an extra approval gate before publishing.
+    environment: maven-central
 
     steps:
+      - name: Verify release author is repository owner
+        run: |
+          RELEASE_AUTHOR="${{ github.event.release.author.login }}"
+          OWNER="${{ github.repository_owner }}"
+          if [ "$RELEASE_AUTHOR" != "$OWNER" ]; then
+            echo "::error::Release was published by @$RELEASE_AUTHOR, not the owner @$OWNER."
+            echo "::error::Refusing to publish to Maven Central."
+            exit 1
+          fi
+
       - name: Checkout release source
         uses: actions/checkout@v4
         with:
