@@ -1,0 +1,62 @@
+name: Bug report
+description: Report something broken or misbehaving in kubik
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please fill in the details below
+        so we can reproduce and fix it quickly.
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include stack traces if any.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal code sample or step-by-step instructions. A small snippet is much more useful than a screenshot.
+      render: kotlin
+    validations:
+      required: true
+
+  - type: input
+    id: kubik-version
+    attributes:
+      label: kubik version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: compose-version
+    attributes:
+      label: Jetpack Compose / BOM version
+      placeholder: "2026.02.01"
+    validations:
+      required: true
+
+  - type: input
+    id: android-version
+    attributes:
+      label: Android version / API level
+      placeholder: "Android 14 (API 34)"
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Screenshots, logs, device info — anything else that helps.
