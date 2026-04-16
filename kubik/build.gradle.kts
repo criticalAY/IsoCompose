@@ -3,6 +3,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+group = "com.criticalay.kubik"
+version = providers.gradleProperty("kubikVersion").get()
+
 android {
     namespace = "com.criticalay.kubik"
     compileSdk {
