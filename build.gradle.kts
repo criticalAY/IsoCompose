@@ -22,6 +22,18 @@ plugins {
     alias(libs.plugins.ktlint.gradle) apply false
 }
 
+// Automatically configure git to use the project's committed hooks.
+tasks.register("installGitHooks") {
+    group = "git hooks"
+    description = "Configures git to use .githooks/ as the hooks directory."
+    doLast {
+        exec {
+            commandLine("git", "config", "core.hooksPath", ".githooks")
+        }
+        println("Git hooks path configured to .githooks/")
+    }
+}
+
 subprojects {
     apply(plugin = "org.jlleitschuh.gradle.ktlint")
 
